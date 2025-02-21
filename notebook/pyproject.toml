@@ -1,0 +1,13 @@
+[project]
+name = "moe-scaling-law-notebook"
+version = "0.1.0"
+description = "A Jupyter notebook to demonstrate the proposed MOE scaling law."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.0",
+    "numpy>=2.2.3",
+    "pandas>=2.2.3",
+    "ruff>=0.9.7",
+    "tqdm>=4.67.1",
+]
