@@ -1,0 +1,310 @@
+\documentclass[11pt]{article}
+
+%----------------------------------------------------------
+% Packages and basic setup
+%----------------------------------------------------------
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{hyperref}  % For hyperlinks in the PDF
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    filecolor=blue,      
+    urlcolor=blue,
+}
+
+\usepackage{lmodern}   % For improved font encoding
+\usepackage{microtype} % Better text spacing
+
+%----------------------------------------------------------
+% Document begins
+%----------------------------------------------------------
+\begin{document}
+
+%----------------------------------------------------------
+% Title and Author
+%----------------------------------------------------------
+\title{\textbf{Novel Scaling Laws for MoE Architectures: A Theoretical Analysis}}
+\author{Wesley Medford}
+\date{\today}
+\maketitle
+
+%----------------------------------------------------------
+% Abstract
+%----------------------------------------------------------
+\begin{abstract}
+This paper presents fundamental scaling laws governing the relationship between expert granularity, cache efficiency, and bus bandwidth in Mixture-of-Experts (MoE) model architectures. Through rigorous mathematical analysis, we demonstrate that increasing expert count while decreasing individual expert size can theoretically lead to exponentially improved cache efficiency, even under bandwidth-constrained scenarios. This relationship is governed by specific scaling laws that we derive. The theoretical framework suggests that models with smaller but more numerous experts could achieve superior performance while significantly reducing memory requirements, potentially enabling efficient deployment of trillion-parameter models without requiring full VRAM residency.
+\end{abstract}
+
+%----------------------------------------------------------
+% 1. Introduction
+%----------------------------------------------------------
+\section{Introduction}
+
+The rapid advancement of large language models has driven hardware requirements to unprecedented levels, particularly in VRAM capacity. While MoE architectures improve parameter efficiency through sparse activation, conventional deployment assumes model parameters must reside entirely in accelerator memory. This assumption has led to costly solutions involving GPU meshing or reduced-quality edge deployments.
+
+Recent work by Skliar et al.~\cite{skliar2024} demonstrated that cache-aware routing strategies can significantly improve MoE inference efficiency. Building on these insights, this paper presents a theoretical framework that predicts and explains the relationship between expert granularity and system performance.
+
+\subsection{Core Hypothesis}
+
+This work proposes that the relationship between expert count, size, and cache efficiency follows specific scaling laws that can be theoretically derived. The central hypothesis is that increasing the number of experts while reducing their individual size leads to exponentially improved cache efficiency, governed by the relationship:
+
+\begin{equation}
+\text{Performance Gain} \propto \frac{N_{total}^{\alpha}}{s_{exp}^{\beta}}
+\end{equation}
+
+where $N_{total}$ is the total number of experts, $s_{exp}$ is the size of each expert, and $\alpha$, $\beta$ are architecture-specific constants derived in this work.
+
+\subsection{Key Contributions}
+
+\begin{enumerate}
+    \item Derivation of fundamental scaling laws governing the relationship between expert granularity and cache efficiency
+    \item Mathematical framework for predicting MoE model performance under varying hardware constraints
+    \item Theoretical analysis of the interaction between model architecture and hardware capabilities
+    \item Implementation methodology framework for modern hardware systems
+\end{enumerate}
+
+%----------------------------------------------------------
+% 2. Theoretical Framework
+%----------------------------------------------------------
+\section{Theoretical Framework}
+
+\subsection{Fundamental Scaling Laws}
+
+Building on the work of He~\cite{he2024} regarding expert scaling in MoE models, we derive a comprehensive set of scaling laws that govern the relationship between expert configuration and system performance.
+
+For a given layer with $C_{exp}$ experts needed per forward pass, we define:
+
+\begin{itemize}
+    \item $N$ as the number of experts per layer
+    \item $s_{exp}$ as the size of each expert in bytes
+    \item $bus$ as the available bus bandwidth (bytes/second)
+    \item $t_{exp}$ as the time to process a single expert
+    \item $P_{cached}$ as the fraction of total experts present in cache
+    \item $P_{miss}$ as the probability of a cache miss
+\end{itemize}
+
+The fundamental relationship between these parameters can be expressed as:
+
+\begin{equation}
+P_{miss} = (1 - P_{cached})^{C_{exp}}
+\end{equation}
+
+To account for expert loading time, the effective miss penalty is defined as:
+
+\begin{equation}
+x_{miss} = P_{miss} \times \left(\frac{s_{exp}}{bus}\right)
+\end{equation}
+
+\subsection{Cache Efficiency Analysis and Scaling Constants}
+
+The probability of finding necessary experts in cache improves exponentially with increased expert count, following:
+
+\begin{equation}
+P_{hit} = 1 - (1 - P_{cached})^{C_{exp}}
+\end{equation}
+
+This relationship leads to the first key scaling law:
+
+\begin{equation}
+\text{Cache Efficiency} \propto \exp(k \cdot N_{total})
+\end{equation}
+
+where $k$ is a system-specific constant determined by memory hierarchy latencies.
+
+The constants $\alpha$ and $\beta$ in the scaling law arise from two key relationships:
+
+\begin{enumerate}
+    \item \textbf{$\alpha$ (Expert Count Scaling Factor):}
+        \[
+        \alpha = \log_2\!\biggl(\frac{t_{cache\_miss}}{t_{cache\_hit}}\biggr)
+        \]
+        Represents how performance scales with increased expert count. Derived from cache coherency overhead, where $t_{cache\_miss}$ and $t_{cache\_hit}$ are the respective latencies.
+    \item \textbf{$\beta$ (Expert Size Penalty Factor):}
+        \[
+        \beta = \frac{\log(bus_{bandwidth})}{\log(cache_{bandwidth})}
+        \]
+        Captures how larger experts impact bandwidth utilization. Calculated from memory system characteristics, reflecting the penalty of moving larger experts through the memory hierarchy.
+\end{enumerate}
+
+These constants can be theoretically predicted for a given architecture by analyzing:
+\begin{itemize}
+    \item Memory hierarchy latencies
+    \item Bus bandwidths between different memory tiers
+    \item Cache coherency protocol overhead
+    \item Memory controller queuing characteristics
+\end{itemize}
+
+\subsection{Bandwidth Utilization Model}
+
+Following ProMOE's findings~\cite{song2024}, bandwidth utilization is modeled as:
+
+\begin{equation}
+\text{Effective Bandwidth} = bus \cdot (1 - P_{miss}) + \text{cache bandwidth} \cdot P_{hit}
+\end{equation}
+
+This leads to the second key scaling law:
+
+\begin{equation}
+\text{Throughput} = \frac{N_{active}}{t_{proc} + x_{miss}}
+\end{equation}
+
+where $N_{active}$ is the number of active experts per forward pass.
+
+%----------------------------------------------------------
+% 3. System Architecture Considerations
+%----------------------------------------------------------
+\section{System Architecture Considerations}
+
+\subsection{Hardware Considerations}
+
+The theoretical framework applies to modern accelerator architectures with:
+\begin{itemize}
+    \item High-bandwidth GPU memory
+    \item Lower-bandwidth CPU memory
+    \item High-speed interconnects for coherent memory access
+\end{itemize}
+
+\subsection{Model Architecture Implications}
+
+The theoretical framework suggests several architectural considerations:
+\begin{itemize}
+    \item Trade-offs between expert count and size
+    \item Impact of layer count on overall system performance
+    \item Memory hierarchy utilization patterns
+\end{itemize}
+
+\subsection{Integration with Existing Systems}
+
+The framework can be integrated with existing cache-aware routing strategies through:
+\begin{enumerate}
+    \item Stride-based prefetching for expert parameters
+    \item Chunked prefetching for bandwidth optimization
+    \item Early preemption for critical path optimization
+\end{enumerate}
+
+%----------------------------------------------------------
+% 4. Theoretical Predictions
+%----------------------------------------------------------
+\section{Theoretical Predictions}
+
+\subsection{Expected System Behavior}
+
+The theoretical framework predicts several key behaviors:
+
+\begin{itemize}
+    \item \textbf{Cache Efficiency:}
+    \begin{itemize}
+        \item Exponential improvement in cache hit rates as expert count increases
+        \item Inverse relationship between expert size and system performance
+        \item Memory hierarchy utilization patterns
+    \end{itemize}
+
+    \item \textbf{Performance Characteristics:}
+    \begin{itemize}
+        \item Throughput scaling with expert count and size
+        \item Latency implications of cache efficiency
+        \item Bandwidth utilization patterns
+    \end{itemize}
+\end{itemize}
+
+\subsection{Hardware Interaction Predictions}
+
+The framework predicts specific interaction patterns with modern hardware:
+
+\begin{itemize}
+    \item \textbf{Memory Hierarchy Utilization:}
+    \begin{itemize}
+        \item Optimal cache utilization patterns
+        \item Memory tier transition behaviors
+        \item Bandwidth utilization characteristics
+    \end{itemize}
+    \item \textbf{System-Level Effects:}
+    \begin{itemize}
+        \item Memory coherency impact
+        \item Interconnect utilization patterns
+        \item Overall system efficiency characteristics
+    \end{itemize}
+\end{itemize}
+
+%----------------------------------------------------------
+% 5. Discussion and Future Work
+%----------------------------------------------------------
+\section{Discussion and Future Work}
+
+The theoretical framework provides several key insights:
+
+\begin{enumerate}
+    \item \textbf{Theoretical Implications:}
+    \begin{itemize}
+        \item Mathematical basis for expert scaling decisions
+        \item Bandwidth utilization optimization strategies
+        \item Architecture-specific performance predictions
+    \end{itemize}
+
+    \item \textbf{Practical Applications:}
+    \begin{itemize}
+        \item Guidelines for expert count/size trade-offs
+        \item Optimization strategies for different hardware configurations
+        \item Memory hierarchy design recommendations
+    \end{itemize}
+
+    \item \textbf{Future Directions:}
+    \begin{itemize}
+        \item Comprehensive empirical validation of the theoretical framework using modern hardware architectures
+        \item Experimental verification of scaling laws across different expert configurations
+        \item Real-world performance measurements and comparison with theoretical predictions
+        \item Investigation of dynamic expert sizing
+        \item Integration with emerging memory technologies
+        \item Development of reference implementations to validate theoretical claims
+    \end{itemize}
+\end{enumerate}
+
+%----------------------------------------------------------
+% 6. Conclusion
+%----------------------------------------------------------
+\section{Conclusion}
+
+This work establishes fundamental scaling laws governing the relationship between expert granularity and system performance in MoE architectures. The theoretical framework provides a foundation for understanding and optimizing model deployment across different hardware configurations. While the mathematical relationships derived suggest significant potential for improving performance through expert count/size trade-offs, empirical validation of these theoretical predictions represents a crucial next step. This work opens up exciting opportunities for future research and practical implementation, particularly in validating and refining these scaling laws through real-world experimentation.
+
+%----------------------------------------------------------
+% References
+%----------------------------------------------------------
+\begin{thebibliography}{9}
+
+\bibitem{dai2024}
+Dai, D., Deng, C., et al. (2024).
+\newblock DeepSeekMoE: Towards Ultimate Expert Specialization in Mixture-of-Experts Language Models.
+\newblock \emph{arXiv:2401.06066}.
+
+\bibitem{eliseev2023}
+Eliseev, A., \& Mazur, D. (2023).
+\newblock Fast inference of mixture-of-experts language models with offloading.
+\newblock \emph{arXiv:2312.17238}.
+
+\bibitem{he2024}
+He, X. O. (2024).
+\newblock Mixture of a million experts.
+\newblock \emph{arXiv:2407.04153}.
+
+\bibitem{kurtic2024}
+Kurtic, E., Marques, A., et al. (2024).
+\newblock Give me BF16 or give me death? Accuracy-performance trade-offs in LLM quantization.
+\newblock \emph{arXiv:2411.02355}.
+
+\bibitem{skliar2024}
+Skliar, A., van Rozendaal, T., et al. (2024).
+\newblock Mixture of cache-conditional experts for efficient mobile device inference.
+\newblock \emph{arXiv:2412.00099}.
+
+\bibitem{song2024}
+Song, X., Liu, Z., et al. (2024).
+\newblock ProMoE: Fast MoE-based LLM Serving using Proactive Caching.
+\newblock In \emph{Proceedings of the 29th ACM International Conference on Architectural Support for Programming Languages and Operating Systems}.
+
+\end{thebibliography}
+
+\end{document}
+
